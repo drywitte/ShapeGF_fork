@@ -87,12 +87,12 @@ def eval_points(score_net, x, z, sigma):
         [x]  (bs, npoints, 3)
     """
     with torch.no_grad():
-        score_net.eval()
+        score_net.eval().cpu()
         bs = z.size(0)
         z_sigma = torch.cat((
             z, torch.ones((bs, 1)).to(z) * sigma), dim=1)
         x = x.view(1, -1, 3) * 2
-        grad = score_net(x, z_sigma)  # (bs, npoints, 3)
+        grad = score_net(x, z_sigma).cpu()# (bs, npoints, 3)
         return grad.norm(dim=-1, keepdim=False)
 
 
@@ -113,7 +113,7 @@ def generate_from_latent(score_net, z, sigma, threshold=1e-5,
     points = mesh_extractor.query()
     while points.shape[0] != 0:
         # Query points
-        pointsf = torch.FloatTensor(points).to(DEVICE)
+        pointsf = torch.FloatTensor(points)
         # Normalize to bounding box
         pointsf = pointsf / mesh_extractor.resolution
         pointsf = box_size * (pointsf - 0.5)
@@ -148,10 +148,10 @@ def main_worker(cfg, args):
     trainer.resume(args.pretrained)
     print(cfg.save_dir)
     # TODO
-    trainer.score_net.to(DEVICE)
-    trainer.encoder.to(DEVICE)
+    trainer.score_net.cpu()
+    trainer.encoder.cpu()
     for data in tqdm.tqdm(test_loader):
-        inp = data["tr_points"].to(DEVICE)
+        inp = data["tr_points"]
         with torch.no_grad():
             trainer.encoder.eval()
             z, _ = trainer.encoder(inp)

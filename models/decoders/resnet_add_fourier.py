@@ -130,7 +130,7 @@ class Decoder(nn.Module):
     def encode(self, input):
         # implementing guass only for now
         # Bmm: batch matrix-matrix-multiply
-        bvals = self.bvals.expand(input.size(0), -1, -1).to(DEVICE)  # (bs, m, dim)
+        bvals = self.bvals.expand(input.size(0), -1, -1)# (bs, m, dim)
         input = input.permute(0, 2, 1)
         vals1 = torch.sin(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
         vals2 = torch.cos(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
