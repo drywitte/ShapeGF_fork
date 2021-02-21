@@ -23,6 +23,21 @@ except:  # noqa
     eval_reconstruciton = False
 
 
+def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
+    bs, num_pts = tr_pts.size(0), tr_pts.size(1)
+    sigma = sigma.view(bs, 1, 1)
+
+    y_pred = score_net(tr_pts, shape_latent)  # field (B, #points, 3)
+    temp = 2 * sigma ** 2
+    lambda_sigma = 1.0 / temp
+    weights_num = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2)
+    weights_denom = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2).sum(dim=[1, 2])
+    weights = weights_num / weights_denom
+    # The loss for each sigma is weighted
+    loss = lambda_sigma * (-tr_pts + y_pred * weights.sum(dim=2))
+    return {"loss": loss, "x": tr_pts}
+
+
 def score_matching_loss(score_net, shape_latent, tr_pts, sigma):
     bs, num_pts = tr_pts.size(0), tr_pts.size(1)
     sigma = sigma.view(bs, 1, 1)
