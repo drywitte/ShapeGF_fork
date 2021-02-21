@@ -30,11 +30,17 @@ def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
     y_pred = score_net(tr_pts, shape_latent)  # field (B, #points, 3)
     temp = 2 * sigma ** 2
     lambda_sigma = 1.0 / temp
-    weights_num = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2)
-    weights_denom = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2).sum(dim=[1, 2])
-    weights = weights_num / weights_denom
+    weights_num = torch.exp(
+        -lambda_sigma * (tr_pts - y_pred) ** 2
+    )  # not sure if y_pred is the right value to be passing here as x_i
+    weights_denom = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2).sum(
+        dim=2
+    )  # not sure about dims here
+    weights = weights_num / weights_denom  # (B, #points, 3)
     # The loss for each sigma is weighted
-    loss = lambda_sigma * (-tr_pts + y_pred * weights.sum(dim=2))
+    loss = (
+        2 * lambda_sigma * (-tr_pts + y_pred * weights.sum(dim=2))
+    )  # uncertain if tr_pts is right value
     return {"loss": loss, "x": tr_pts}
 
 
