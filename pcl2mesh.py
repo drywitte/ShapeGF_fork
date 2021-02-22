@@ -13,8 +13,8 @@ from pprint import pprint
 from utils.libmise import MISE
 from skimage import measure
 import numpy as np
-# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#DEVICE = torch.device("cpu")
 
 
 def get_args():
@@ -87,7 +87,7 @@ def eval_points(score_net, x, z, sigma):
         [x]  (bs, npoints, 3)
     """
     with torch.no_grad():
-        score_net.eval().cpu()
+        score_net.eval()
         bs = z.size(0)
         z_sigma = torch.cat((
             z, torch.ones((bs, 1)).to(z) * sigma), dim=1)
@@ -148,10 +148,10 @@ def main_worker(cfg, args):
     trainer.resume(args.pretrained)
     print(cfg.save_dir)
     # TODO
-    trainer.score_net.cpu()
-    trainer.encoder.cpu()
+    trainer.score_net.to(DEVICE)
+    trainer.encoder.to(DEVICE)
     for data in tqdm.tqdm(test_loader):
-        inp = data["tr_points"]
+        inp = data["tr_points"].to(DEVICE)
         with torch.no_grad():
             trainer.encoder.eval()
             z, _ = trainer.encoder(inp)

@@ -96,6 +96,7 @@ class Decoder(nn.Module):
 
         # Input = Conditional = zdim (shape) + dim (xyz) + 1 (sigma)
         self.bvals = torch.randn(1, m_dim, dim) * sigma  # (1, 256, 3)
+        self.bvals = self.bvals.to(DEVICE)
         self.bvals.requires_grad = False
 
         # c_dim = z_dim + dim + 1
@@ -131,9 +132,9 @@ class Decoder(nn.Module):
         # implementing guass only for now
         # Bmm: batch matrix-matrix-multiply
         bvals = self.bvals.expand(input.size(0), -1, -1)# (bs, m, dim)
-        input = input.permute(0, 2, 1)
-        vals1 = torch.sin(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
-        vals2 = torch.cos(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
+        input = input.permute(0, 2, 1).to(DEVICE)
+        vals1 = torch.sin(2 * torch.tensor(np.pi).to(DEVICE) * torch.bmm(bvals, input))  # (bs, m, npoints)
+        vals2 = torch.cos(2 * torch.tensor(np.pi).to(DEVICE) * torch.bmm(bvals, input))  # (bs, m, npoints)
         encoded_input = torch.cat((vals1, vals2), dim=1)  # (bs, 2m, npoints)
         del vals1, vals2
         return encoded_input
