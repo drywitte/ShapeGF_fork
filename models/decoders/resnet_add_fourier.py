@@ -133,8 +133,8 @@ class Decoder(nn.Module):
         # Bmm: batch matrix-matrix-multiply
         bvals = self.bvals.expand(input.size(0), -1, -1)# (bs, m, dim)
         input = input.permute(0, 2, 1).to(DEVICE)
-        vals1 = torch.sin(2 * torch.tensor(np.pi).to(DEVICE) * torch.bmm(bvals, input))  # (bs, m, npoints)
-        vals2 = torch.cos(2 * torch.tensor(np.pi).to(DEVICE) * torch.bmm(bvals, input))  # (bs, m, npoints)
+        vals1 = torch.sin(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
+        vals2 = torch.cos(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
         encoded_input = torch.cat((vals1, vals2), dim=1)  # (bs, 2m, npoints)
         del vals1, vals2
         return encoded_input
