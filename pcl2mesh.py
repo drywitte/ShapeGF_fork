@@ -13,8 +13,8 @@ from pprint import pprint
 from utils.libmise import MISE
 from skimage import measure
 import numpy as np
-# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#DEVICE = torch.device("cpu")
 
 
 def get_args():
@@ -92,7 +92,7 @@ def eval_points(score_net, x, z, sigma):
         z_sigma = torch.cat((
             z, torch.ones((bs, 1)).to(z) * sigma), dim=1)
         x = x.view(1, -1, 3) * 2
-        grad = score_net(x, z_sigma)  # (bs, npoints, 3)
+        grad = score_net(x, z_sigma).cpu()# (bs, npoints, 3)
         return grad.norm(dim=-1, keepdim=False)
 
 
@@ -113,7 +113,7 @@ def generate_from_latent(score_net, z, sigma, threshold=1e-5,
     points = mesh_extractor.query()
     while points.shape[0] != 0:
         # Query points
-        pointsf = torch.FloatTensor(points).to(DEVICE)
+        pointsf = torch.FloatTensor(points)
         # Normalize to bounding box
         pointsf = pointsf / mesh_extractor.resolution
         pointsf = box_size * (pointsf - 0.5)
