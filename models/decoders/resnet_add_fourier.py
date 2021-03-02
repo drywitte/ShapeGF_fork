@@ -94,13 +94,14 @@ class Decoder(nn.Module):
         self.m_dim = m_dim = getattr(cfg, "m_dim", 256)
         self.sigma = sigma = getattr(cfg, "sigma", 12)
 
-        # Input = Conditional = zdim (shape) + dim (xyz) + 1 (sigma)
         self.bvals = torch.randn(1, m_dim, dim) * sigma  # (1, 256, 3)
         self.bvals = self.bvals.to(DEVICE)
         self.bvals.requires_grad = False
+        self.avals = torch.ones(self.bvals[:, :, 0].shape)
+        self.avals.requires_grad = False
 
-        # c_dim = z_dim + dim + 1
-        c_dim = z_dim + 2 * self.m_dim + 1
+        # Input = Conditional = zdim (shape) + dim (xyz) + 1 (sigma)
+        c_dim = z_dim + 2 * self.m_dim + 1 + dim
         self.conv_p = nn.Conv1d(c_dim, hidden_size, 1)
         self.blocks = nn.ModuleList(
             [ResnetBlockConv1d(c_dim, hidden_size) for _ in range(n_blocks)]
@@ -110,18 +111,18 @@ class Decoder(nn.Module):
         self.actvn_out = nn.ReLU()
 
     # This should have the same signature as the sig condition one
-    def forward(self, x, c):
+    def forward(self, x, cee):
         """
         :param x: (bs, npoints, self.dim) Input coordinate (xyz)
         :param c: (bs, self.zdim + 1) Shape latent code + sigma
         :return: (bs, npoints, self.dim) Gradient (self.dim dimension)
         """
-        p = x.transpose(1, 2)  # (bs, dim, n_points)
-        batch_size, D, num_points = p.size()
-        p = self.encode(x)
-        # pdb.set_trace()
-        c_expand = c.unsqueeze(2).expand(-1, -1, num_points)
-        c_xyz = torch.cat([p, c_expand], dim=1)
+        pvar = x.transpose(1, 2)  # (bs, dim, n_points)
+        batch_size, Dim, num_points = pvar.size()
+        encoding = self.encode(x)
+        pvar = torch.cat((pvar, encoding), dim=1)  # (bs, 2m+dim, n_pts)
+        c_expand = cee.unsqueeze(2).expand(-1, -1, num_points)  # (bs, zdim, n_pts)
+        c_xyz = torch.cat([pvar, c_expand], dim=1)  # (bs, 2m+dim+zdim, n_pts)
         net = self.conv_p(c_xyz)
         for block in self.blocks:
             net = block(net, c_xyz)
@@ -136,5 +137,6 @@ class Decoder(nn.Module):
         vals1 = torch.sin(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
         vals2 = torch.cos(2 * np.pi * torch.bmm(bvals, input))  # (bs, m, npoints)
         encoded_input = torch.cat((vals1, vals2), dim=1)  # (bs, 2m, npoints)
+        encoded_input /= torch.norm(self.avals)  # (bs, 2m, npoints)
         del vals1, vals2
         return encoded_input
