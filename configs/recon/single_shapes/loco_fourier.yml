@@ -62,7 +62,7 @@ models:
     xyz_condition: True
     z_dim: 128
     m_dim: 128 
-    sigma: 13 
+    sigma: .1
   encoder:
     type: models.encoders.constant_encoder
     use_deterministic_encoder: True

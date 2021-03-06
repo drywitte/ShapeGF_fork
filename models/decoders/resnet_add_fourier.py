@@ -117,6 +117,7 @@ class Decoder(nn.Module):
         :param c: (bs, self.zdim + 1) Shape latent code + sigma
         :return: (bs, npoints, self.dim) Gradient (self.dim dimension)
         """
+        x = x.to(DEVICE)
         pvar = x.transpose(1, 2)  # (bs, dim, n_points)
         batch_size, Dim, num_points = pvar.size()
         encoding = self.encode(x)
