@@ -30,7 +30,7 @@ def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
     bs, num_pts = tr_pts.size(0), tr_pts.size(1)
     sigma = sigma.view(bs, 1, 1)
     lambda_sigma = 1.0 / (2 * sigma)
-    sampled_pts = torch.rand_like(tr_pts).uniform_(-1, 1)  # this isn't exactly right
+    sampled_pts = (torch.rand(bs, num_pts, 3) * 2 - 1.0) * 1.5
     y_pred = score_net(sampled_pts, shape_latent)  # field (B, #points, 3)
     softmax_input = -(1 / (2 * sigma ** 2)) * (sampled_pts - tr_pts) ** 2
     weights = torch.nn.functional.softmax(softmax_input, dim=2)
