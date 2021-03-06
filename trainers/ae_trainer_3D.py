@@ -3,6 +3,7 @@ import tqdm
 import torch
 import importlib
 import numpy as np
+import pdb
 from trainers.base_trainer import BaseTrainer
 from trainers.utils.vis_utils import visualize_point_clouds_3d, visualize_procedure
 from trainers.utils.utils import (
@@ -24,23 +25,22 @@ except:  # noqa
 
 
 def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
+    # need to uniformly sample from -1 to 1 as x in the equation
+    # xi is the tr_pts
     bs, num_pts = tr_pts.size(0), tr_pts.size(1)
     sigma = sigma.view(bs, 1, 1)
-
-    y_pred = score_net(tr_pts, shape_latent)  # field (B, #points, 3)
-    temp = 2 * sigma ** 2
-    lambda_sigma = 1.0 / temp
-    weights_num = torch.exp(
-        -lambda_sigma * (tr_pts - y_pred) ** 2
-    )  # not sure if y_pred is the right value to be passing here as x_i
-    weights_denom = torch.exp(-lambda_sigma * (tr_pts - y_pred) ** 2).sum(
-        dim=2
-    )  # not sure about dims here
-    weights = weights_num / weights_denom  # (B, #points, 3)
+    lambda_sigma = 1.0 / (2 * sigma)
+    sampled_pts = torch.rand_like(tr_pts).uniform_(-1, 1)  # this isn't exactly right
+    y_pred = score_net(sampled_pts, shape_latent)  # field (B, #points, 3)
+    softmax_input = -(1 / (2 * sigma ** 2)) * (sampled_pts - tr_pts) ** 2
+    weights = torch.nn.functional.softmax(softmax_input, dim=2)
     # The loss for each sigma is weighted
-    loss = (
-        2 * lambda_sigma * (-tr_pts + y_pred * weights.sum(dim=2))
-    )  # uncertain if tr_pts is right value
+    y_gtr = (
+        -sampled_pts + tr_pts * weights
+    )  # including this blew up my loss values (1 / (sigma ** 2)) *
+    # loss = (0.5 * ((y_gtr - y_pred) ** 2.0)).sum(dim=2).mean()
+    loss = 0.5 * ((y_gtr - y_pred) ** 2.0 * lambda_sigma).sum(dim=2).mean()
+    # uncertain if tr_pts is right value
     return {"loss": loss, "x": tr_pts}
 
 
@@ -163,7 +163,7 @@ class Trainer(BaseTrainer):
         )
         z = torch.cat((z, used_sigmas), dim=1)
 
-        res = score_matching_loss(self.score_net, z, tr_pts, used_sigmas)
+        res = score_matching_heuristic_loss(self.score_net, z, tr_pts, used_sigmas)
         loss = res["loss"]
         if not no_update:
             loss.backward()
