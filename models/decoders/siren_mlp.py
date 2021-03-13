@@ -74,7 +74,7 @@ class Decoder(nn.Module):
         p_dims = x.transpose(1, 2)  # (bs, dim, n_points)
         batch_size, D, num_points = p_dims.size()
         c_expand = c_dims.unsqueeze(2).expand(-1, -1, num_points)
-        c_xyz = torch.cat([p_dims, c_expand], dim=1).view(batch_size, num_points, -1)
+        c_xyz = torch.cat([p_dims, c_expand], dim=1).permute(0, 2, 1)
         net = c_xyz
         for block in self.blocks[:-1]:
             net = self.act(block(net))
