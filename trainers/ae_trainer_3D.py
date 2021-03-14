@@ -33,12 +33,18 @@ def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
     sampled_pts = (torch.rand(bs, num_pts, 3) * 2 - 1.0).to(
         DEVICE
     )  # move sampled to config and pass in at some point
+    pdb.set_trace()
     y_pred = score_net(sampled_pts, shape_latent)  # field (B, #points, 3)
     diff = (
         (sampled_pts.repeat(1, num_pts, 1).view(num_pts, bs, num_pts, 3) - tr_pts)
         .sum(3)
-        .permute(1, 0, 2)
+        .permute(0, 2, 1)
     )
+    # diff = (
+    #     (sampled_pts.repeat(1, num_pts, 1).view(num_pts, bs, num_pts, 3) - tr_pts)
+    #     .sum(3)
+    #     .permute(1, 0, 2)
+    # )
     softmax_input = -(1 / (2 * sigma ** 2)) * (diff) ** 2  # no backprop
     weights = torch.nn.functional.softmax(
         softmax_input, dim=2
