@@ -24,38 +24,46 @@ except:  # noqa
     eval_reconstruciton = False
 
 
-def score_matching_heuristic_loss(score_net, shape_latent, tr_pts, sigma):
+def score_matching_heuristic_loss(
+    score_net, shape_latent, tr_pts, sigma, num_sampled_pts=1000
+):
     # need to uniformly sample from -1 to 1 as x in the equation
     # xi is the tr_pts
     # test with single sigma value
     bs, num_pts = tr_pts.size(0), tr_pts.size(1)
     sigma = sigma.view(bs, 1, 1)
-    sampled_pts = (torch.rand(bs, num_pts, 3) * 2 - 1.0).to(
+    sampled_pts = (torch.rand(bs, num_sampled_pts, 3) * 2 - 1.0).to(
         DEVICE
-    )  # move sampled to config and pass in at some point
-    pdb.set_trace()
-    y_pred = score_net(sampled_pts, shape_latent)  # field (B, #points, 3)
-    diff = (
-        (sampled_pts.repeat(1, num_pts, 1).view(num_pts, bs, num_pts, 3) - tr_pts)
-        .sum(3)
-        .permute(0, 2, 1)
-    )
+    )  # (bs, num_sampled_pts, 3) # move sampled to config and pass in at some point
+    y_pred = score_net(sampled_pts, shape_latent)  # field (B, #num_sampled_points, 3)
     # diff = (
     #     (sampled_pts.repeat(1, num_pts, 1).view(num_pts, bs, num_pts, 3) - tr_pts)
     #     .sum(3)
-    #     .permute(1, 0, 2)
+    #     .permute(0, 2, 1)
     # )
-    softmax_input = -(1 / (2 * sigma ** 2)) * (diff) ** 2  # no backprop
+    # diff matrix: (bs, num_sampled_pts, num_surface_pts, 3)
+    sampled_pts = sampled_pts.view(bs, num_sampled_pts, 1, 3)
+    tr_pts = tr_pts.view(bs, 1, num_pts, 3)
+    diff = sampled_pts - tr_pts
+    diff = diff ** 2
+    diff = diff.sum(3, keepdim=False)  # (bs, num_sample_pts, num_tr_pts)
+    softmax_input = -(1 / (2 * sigma ** 2)) * (diff)  # no backprop
     weights = torch.nn.functional.softmax(
         softmax_input, dim=2
     )  # (bs, num_sample_pts, num_tr_pts)
+    weights = weights.view(bs, num_sampled_pts, num_pts, 1)
     # The loss for each sigma is weighted
-    y_gtr = (
-        -sampled_pts + weights @ tr_pts
-    )  # including this blew up my loss values (1 / (sigma ** 2)) *
-    loss = (
-        0.5 * ((y_gtr - y_pred) ** 2.0).sum(dim=2).mean()
-    )  # switch back to correct loss
+    # y_gtr = (
+    #     -sampled_pts + weights @ tr_pts
+    # )  # including this blew up my loss values (1 / (sigma ** 2)) *
+    weighted_surface_pts = tr_pts * weights  # (bs, num_sampled_pts, num_tr_pts, 3)
+    weighted_surface_pts = weighted_surface_pts.sum(
+        2, keepdim=False
+    )  # (bs, num_sampled_pts, 3)
+    y_gtr = weighted_surface_pts - sampled_pts.view(
+        bs, num_sampled_pts, 3
+    )  # (bs, num_sampled_pts, 3)
+    loss = 0.5 * ((y_gtr - y_pred) ** 2.0).sum(2).mean()  # switch back to correct loss
     # uncertain if tr_pts is right value
     return {"loss": loss, "x": tr_pts}
 
