@@ -46,7 +46,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.z_dim = cfg.z_dim
-        self.dim = dim = cfg.dim + self.z_dim + 1
+        self.dim = dim = cfg.dim + 1
         self.out_dim = out_dim = cfg.out_dim
         self.hidden_size = hidden_size = cfg.hidden_size
         self.n_blocks = n_blocks = cfg.n_blocks
@@ -71,11 +71,12 @@ class Decoder(nn.Module):
         TODO: will ignore [c] for now
         :return: (bs, npoints, self.dim) Gradient (self.dim dimension)
         """
-        p_dims = x.transpose(1, 2)  # (bs, dim, n_points)
-        batch_size, D, num_points = p_dims.size()
-        c_expand = c_dims.unsqueeze(2).expand(-1, -1, num_points)
-        c_xyz = torch.cat([p_dims, c_expand], dim=1).permute(0, 2, 1)
-        net = c_xyz
+        batch_size, num_points, D = x.size()
+        sigmas = c_dims[:, -1]  # (bs)
+        sigmas = sigmas.view(-1, 1, 1)  # (bs, 1,1)
+        sigmas = sigmas.expand(batch_size, num_points, 1)  # (bs, num pts, 1)
+        x = torch.cat([x, sigmas], dim=2)  # (bs, num_pts, 4)
+        net = x
         for block in self.blocks[:-1]:
             net = self.act(block(net))
         out = self.blocks[-1](net)
